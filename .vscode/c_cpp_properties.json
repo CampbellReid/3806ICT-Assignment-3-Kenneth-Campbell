@@ -6,11 +6,10 @@
         "limitSymbolsToIncludedHeaders": false
       },
       "includePath": [
-        "/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/devel/include/**",
-        "/home/campbell/catkin_ws/devel/include/**",
+        "${workspaceFolder}/devel/include/**",
         "/opt/ros/noetic/include/**",
-        "/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/src/turtlebot3_simulations/turtlebot3_fake/include/**",
-        "/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/src/turtlebot3_simulations/turtlebot3_gazebo/include/**",
+        "${workspaceFolder}/turtlebot3_fake/include/**",
+        "${workspaceFolder}/turtlebot3_gazebo/include/**",
         "/usr/include/**"
       ],
       "name": "ROS",
