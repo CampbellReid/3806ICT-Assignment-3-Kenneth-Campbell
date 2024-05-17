@@ -1,8 +1,0 @@
-prefix=/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/devel
-
-Name: assignment1_setup
-Description: Description of assignment1_setup
-Version: 0.0.0
-Cflags: -I/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/devel/include
-Libs: -L${prefix}/lib 
-Requires: gazebo_msgs geometry_msgs message_generation roscpp rospy std_msgs

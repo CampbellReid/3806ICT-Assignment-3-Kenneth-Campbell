@@ -1,8 +1,0 @@
-prefix=/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/devel
-
-Name: assignment3
-Description: Description of assignment3
-Version: 0.0.0
-Cflags: -I/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/devel/include
-Libs: -L${prefix}/lib 
-Requires: message_runtime
