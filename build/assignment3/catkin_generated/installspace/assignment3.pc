@@ -1,0 +1,8 @@
+prefix=/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/catkin_ws/install
+
+Name: assignment3
+Description: Description of assignment3
+Version: 0.0.0
+Cflags: -I${prefix}/include
+Libs: -L${prefix}/lib 
+Requires: message_runtime

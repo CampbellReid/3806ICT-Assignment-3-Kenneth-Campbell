@@ -1,0 +1,8 @@
+(cl:in-package assignment3-msg)
+(cl:export '(POSITION-VAL
+          POSITION
+          SPEED-VAL
+          SPEED
+          OBSTACLES-VAL
+          OBSTACLES
+))
