@@ -8,12 +8,12 @@ def main():
     rospy.init_node('main_node')
 
     # Service proxies
-    collect_data: CollectData = rospy.ServiceProxy('collect_data', CollectData)
-    process_sensor_data: ProcessSensorData = rospy.ServiceProxy('process_sensor_data', ProcessSensorData)
-    validate_plan: ValidatePlan = rospy.ServiceProxy('validate_plan', ValidatePlan)
-    create_plan: CreatePlan = rospy.ServiceProxy('create_plan', CreatePlan)
-    update_goals: UpdateGoals = rospy.ServiceProxy('update_goals', UpdateGoals)
-    execute_plan: ExecutePlan = rospy.ServiceProxy('execute_plan', ExecutePlan)
+    collect_data = rospy.ServiceProxy('collect_data', CollectData)
+    process_sensor_data = rospy.ServiceProxy('process_sensor_data', ProcessSensorData)
+    validate_plan = rospy.ServiceProxy('validate_plan', ValidatePlan)
+    create_plan = rospy.ServiceProxy('create_plan', CreatePlan)
+    update_goals = rospy.ServiceProxy('update_goals', UpdateGoals)
+    execute_plan = rospy.ServiceProxy('execute_plan', ExecutePlan)
 
     rate = rospy.Rate(1) # 1 Hz
     while not rospy.is_shutdown():
