@@ -12,3 +12,5 @@ dependencies:
   - jupyterlab
   - compilers
   - pip
+  - pip:
+    - gym
