@@ -49,12 +49,12 @@ include_directories(
 
 # Add executables for Python nodes
 catkin_install_python(PROGRAMS
-  src/plan_validator_node.py
-  src/controller_node.py
-  src/interpreter_node.py
-  src/goal_manager_node.py
-  src/monitor_node.py
-  src/planner_node.py
-  src/main.py
+  scripts/plan_validator_node.py
+  scripts/controller_node.py
+  scripts/interpreter_node.py
+  scripts/goal_manager_node.py
+  scripts/monitor_node.py
+  scripts/planner_node.py
+  scripts/main.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
