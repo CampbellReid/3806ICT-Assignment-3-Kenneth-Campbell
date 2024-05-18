@@ -1,20 +1,23 @@
+#!/usr/bin/env python
+
 import rospy
+from std_msgs.msg import Float32MultiArray
 from assignment3.srv import CollectData, CollectDataResponse
-from assignment3.msg import SensorData
 
-def collect_data(req):
-    # Simulate sensor data collection
-    data = SensorData()
-    data.position.x = 1.0
-    data.position.y = 2.0
-    data.speed = 0.5
-    # Add more sensor data as needed
-    return CollectDataResponse(data)
+def handle_collect_data(req):
+    sensor_data = Float32MultiArray()
+    # Collect sensor data from Gazebo environment
+    # Example: sensor_data.data = get_gazebo_sensor_data()
+    sensor_data.data = [0.0, 0.0]  # Placeholder data
+    return CollectDataResponse(sensor_data.data)
 
-def monitor_server():
+def monitor():
     rospy.init_node('monitor_node')
-    service = rospy.Service('collect_data', CollectData, collect_data)
+    s = rospy.Service('collect_data', CollectData, handle_collect_data)
     rospy.spin()
 
-if __name__ == "__main__":
-    monitor_server()
+if __name__ == '__main__':
+    try:
+        monitor()
+    except rospy.ROSInterruptException:
+        pass
