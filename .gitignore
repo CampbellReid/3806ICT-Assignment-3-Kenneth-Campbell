@@ -1,3 +1,5 @@
 /build
 /devel
 .catkin_workspace
+ppo_model_worker1.zip
+ppo_model_worker2.zip
