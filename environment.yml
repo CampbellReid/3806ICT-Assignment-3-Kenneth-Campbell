@@ -11,6 +11,8 @@ dependencies:
   - seaborn
   - jupyterlab
   - compilers
+  - gymnasium
+  - scikit-learn
+  - pytorch
+  - torchvision
   - pip
-  - pip:
-    - gym

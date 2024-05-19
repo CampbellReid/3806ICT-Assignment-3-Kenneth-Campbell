@@ -1,55 +1,51 @@
 import torch as th
 from stable_baselines3 import PPO
-import syft as sy
-from stable_baselines3.common.envs import DummyVecEnv
-import gym
+from stable_baselines3.common.vec_env import DummyVecEnv
+import gymnasium as gym
 import numpy as np
-import rospy
-from std_srvs.srv import Empty
 
-# Define the Gazebo environment interface
-class GazeboEnv(gym.Env):
+# Define the GridWorld environment interface
+class GridWorldEnv(gym.Env):
     def __init__(self):
-        super(GazeboEnv, self).__init__()
-        self.observation_space = gym.spaces.Box(low=-np.inf, high=np.inf, shape=(2,), dtype=np.float32)
-        self.action_space = gym.spaces.Discrete(4)  # Example: up, down, left, right
+        super(GridWorldEnv, self).__init__()
+        self.grid_size = 5
+        self.goal = np.array([4, 4])
+        self.obstacles = [np.array([2, 2]), np.array([3, 3])]
+        self.observation_space = gym.spaces.Box(low=0, high=self.grid_size-1, shape=(2,), dtype=np.int32)
+        self.action_space = gym.spaces.Discrete(4)  # up, down, left, right
+        self.state = None
 
-    def reset(self):
-        # Reset the environment in Gazebo
-        rospy.wait_for_service('/gazebo/reset_simulation')
-        reset_simulation = rospy.ServiceProxy('/gazebo/reset_simulation', Empty)
-        reset_simulation()
-        return self.get_state()
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed)  # Set the seed for reproducibility
+        self.state = np.array([0, 0])  # Start at the top-left corner
+        return self.state
 
     def step(self, action):
-        # Execute the action in Gazebo
-        next_state = self.execute_action(action)
+        next_state = self.state.copy()
+        if action == 0:  # up
+            next_state[1] = max(next_state[1] - 1, 0)
+        elif action == 1:  # down
+            next_state[1] = min(next_state[1] + 1, self.grid_size - 1)
+        elif action == 2:  # left
+            next_state[0] = max(next_state[0] - 1, 0)
+        elif action == 3:  # right
+            next_state[0] = min(next_state[0] + 1, self.grid_size - 1)
+
         reward = compute_reward(self.state, action, next_state)
         done = self.is_done(next_state)
         self.state = next_state
-        return next_state, reward, done, {}
-
-    def get_state(self):
-        # Retrieve the state from Gazebo
-        state = [0.0, 0.0]  # Placeholder
-        return np.array(state)
-
-    def execute_action(self, action):
-        # Send the action to Gazebo and get the next state
-        next_state = self.get_state()  # Placeholder
-        return next_state
+        truncated = False  # Set truncated to False as we are not using this in this simple environment
+        info = {}
+        return next_state, reward, done, truncated, info
 
     def is_done(self, state):
-        # Define the termination condition
-        goal = np.array([4, 4])
-        current_position = np.array(state[:2])
-        return np.array_equal(current_position, goal)
+        return np.array_equal(state, self.goal)
 
 # Define the reward function
 def compute_reward(state, action, next_state):
     goal = np.array([4, 4])
-    current_position = np.array(state[:2])
-    next_position = np.array(next_state[:2])
+    current_position = np.array(state)
+    next_position = np.array(next_state)
 
     # Negative reward for distance to goal
     distance_to_goal = np.linalg.norm(next_position - goal)
@@ -66,14 +62,9 @@ def compute_reward(state, action, next_state):
 
     return reward
 
-# Create virtual workers for federated learning
-hook = sy.TorchHook(th)
-worker1 = sy.VirtualWorker(hook, id="worker1")
-worker2 = sy.VirtualWorker(hook, id="worker2")
-
 # Create environments for each worker
-env1 = DummyVecEnv([lambda: GazeboEnv()])
-env2 = DummyVecEnv([lambda: GazeboEnv()])
+env1 = DummyVecEnv([lambda: GridWorldEnv()])
+env2 = DummyVecEnv([lambda: GridWorldEnv()])
 
 # Create PPO models for each worker
 model1 = PPO('MlpPolicy', env1, verbose=1)
@@ -100,9 +91,6 @@ def average_weights(weights):
         avg_weights[key] = sum(weight[key] for weight in weights) / len(weights)
     return avg_weights
 
-# Initialize the ROS node
-rospy.init_node('federated_learning')
-
 # Perform federated learning
 federated_learning([model1, model2])
 
@@ -110,5 +98,4 @@ federated_learning([model1, model2])
 model1.save("ppo_model_worker1")
 model2.save("ppo_model_worker2")
 
-# Shut down the ROS node
-rospy.signal_shutdown('Federated learning completed')
+print('Federated learning completed')
