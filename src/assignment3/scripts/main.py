@@ -1,49 +1,43 @@
-#!/usr/bin/env python
+def collect_data():
+    # Replace with your own logic
+    return "sensor_data"
 
-import rospy
-from assignment3.srv import CollectData, ProcessSensorData, ValidatePlan, CreatePlan, ExecutePlan
-from std_msgs.msg import Float32MultiArray
+def process_sensor_data(sensor_data):
+    # Replace with your own logic
+    return "state"
+
+def validate_plan(current_plan, state):
+    # Replace with your own logic
+    return True
+
+def create_plan(state, goals):
+    # Replace with your own logic
+    return "new_plan"
+
+def execute_plan(current_plan):
+    # Replace with your own logic
+    pass
 
 def main():
-    rospy.init_node('main_node')
-
-    # Wait for the services to be available
-    rospy.wait_for_service('collect_data')
-    rospy.wait_for_service('process_sensor_data')
-    rospy.wait_for_service('validate_plan')
-    rospy.wait_for_service('create_plan')
-    rospy.wait_for_service('execute_plan')
-
-    # Create service proxies
-    collect_data = rospy.ServiceProxy('collect_data', CollectData)
-    process_sensor_data = rospy.ServiceProxy('process_sensor_data', ProcessSensorData)
-    validate_plan = rospy.ServiceProxy('validate_plan', ValidatePlan)
-    create_plan = rospy.ServiceProxy('create_plan', CreatePlan)
-    execute_plan = rospy.ServiceProxy('execute_plan', ExecutePlan)
-
-    rate = rospy.Rate(1)  # 1 Hz
-
-    while not rospy.is_shutdown():
+    while True:
         # Step 1: Monitor
-        sensor_data = collect_data().data
+        sensor_data = collect_data()
 
         # Step 2: Interpret
-        state = process_sensor_data(sensor_data).state
+        state = process_sensor_data(sensor_data)
 
         # Step 3: Validate Plan
-        current_plan = Float32MultiArray()  # Assume current_plan is obtained or initialized
-        if not validate_plan(current_plan, state).valid:
+        current_plan = "current_plan"  # Assume current_plan is obtained or initialized
+        if not validate_plan(current_plan, state):
             # Step 4: Re-plan if necessary
-            goals = Float32MultiArray()  # Assume goals are obtained
-            current_plan = create_plan(state, goals).plan
+            goals = "goals"  # Assume goals are obtained
+            current_plan = create_plan(state, goals)
 
         # Step 5: Execute Plan
         execute_plan(current_plan)
 
-        rate.sleep()
-
 if __name__ == '__main__':
     try:
         main()
-    except rospy.ROSInterruptException:
+    except KeyboardInterrupt:
         pass

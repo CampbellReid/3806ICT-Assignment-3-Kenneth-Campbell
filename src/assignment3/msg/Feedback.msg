@@ -1,1 +1,0 @@
-bool action_success

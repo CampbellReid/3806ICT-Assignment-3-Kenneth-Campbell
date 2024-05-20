@@ -1,2 +1,0 @@
-geometry_msgs/Point current_position
-Map environment_map
