@@ -3,3 +3,4 @@
 .catkin_workspace
 ppo_model_worker1.zip
 ppo_model_worker2.zip
+lidar_map_data.csv
