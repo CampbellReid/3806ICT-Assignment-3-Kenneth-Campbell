@@ -4,12 +4,14 @@ project(assignment3)
 find_package(catkin REQUIRED COMPONENTS
   rospy
   std_msgs
+  sensor_msgs
   message_generation
 )
 
 generate_messages(
   DEPENDENCIES
   std_msgs
+  sensor_msgs
 )
 
 catkin_package(
@@ -21,6 +23,6 @@ include_directories(
 )
 
 catkin_install_python(PROGRAMS
-  scripts/main.py
+  scripts/lidar_map.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
