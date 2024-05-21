@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from tf.transformations import euler_from_quaternion
+import csv
 
 # Global variables to store the latest data
 latest_ranges = []
@@ -20,6 +21,9 @@ robot_yaw = 0.0
 
 # Global map
 global_map = []
+
+# File to save the map data
+output_file = 'lidar_map_data.csv'
 
 def lidar_callback(data):
     global latest_ranges, latest_angles, range_max
@@ -61,6 +65,35 @@ def update_map():
     for i in range(len(x_coords)):
         global_map.append((x_coords[i], y_coords[i]))
 
+def save_map_to_csv(filename, map_data):
+    with open(filename, 'w', newline='') as csvfile:
+        csvwriter = csv.writer(csvfile)
+        csvwriter.writerow(['x', 'y'])
+        csvwriter.writerows(map_data)
+    rospy.loginfo("Map data saved to {}".format(filename))
+
+def clean_up_map(map_data, epsilon=0.1):
+    # Simple cleanup: reduce the number of points by downsampling
+    cleaned_map = []
+    if len(map_data) == 0:
+        return cleaned_map
+
+    map_data = np.array(map_data)
+    prev_point = map_data[0]
+    cleaned_map.append(prev_point)
+
+    for point in map_data[1:]:
+        if np.linalg.norm(point - prev_point) > epsilon:
+            cleaned_map.append(point)
+            prev_point = point
+
+    return cleaned_map
+
+def on_close(event):
+    cleaned_map = clean_up_map(global_map)
+    save_map_to_csv(output_file, cleaned_map)
+    rospy.signal_shutdown('Window closed')
+
 def animate(i):
     update_map()
 
@@ -88,6 +121,7 @@ def lidar_listener():
     rospy.Subscriber('/scan', LaserScan, lidar_callback)
     rospy.Subscriber('/odom', Odometry, odom_callback)
     ani = animation.FuncAnimation(fig, animate, interval=100)
+    fig.canvas.mpl_connect('close_event', on_close)
     plt.show()
     rospy.spin()
 
