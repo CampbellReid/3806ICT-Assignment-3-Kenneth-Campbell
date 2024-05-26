@@ -3,6 +3,8 @@ project(assignment3)
 
 find_package(catkin REQUIRED COMPONENTS
   rospy
+  roscpp
+  gazebo_msgs
   std_msgs
   sensor_msgs
   message_generation
@@ -10,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 generate_messages(
   DEPENDENCIES
+  gazebo_msgs
   std_msgs
   sensor_msgs
 )
@@ -25,4 +28,10 @@ include_directories(
 catkin_install_python(PROGRAMS
   scripts/lidar_map.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
+
+add_executable(populate_world scripts/populate_world.cpp)
+
+target_link_libraries(populate_world
+  ${catkin_LIBRARIES}
 )
