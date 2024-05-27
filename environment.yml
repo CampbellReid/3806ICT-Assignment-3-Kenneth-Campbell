@@ -1,4 +1,4 @@
-name: 3806ICT
+name: ros_noetic
 channels:
   - conda-forge
 dependencies:
@@ -10,9 +10,14 @@ dependencies:
   - matplotlib
   - seaborn
   - jupyterlab
-  - compilers
   - gymnasium
   - scikit-learn
   - pytorch
   - torchvision
+  - opencv
+  - open3d
+  - empy
+  - catkin_pkg
+  - rospkg
+  - rosdep
   - pip

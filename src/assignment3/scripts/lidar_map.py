@@ -1,17 +1,18 @@
-#!/usr/bin/env python
-
 import rospy
 from sensor_msgs.msg import LaserScan
-from nav_msgs.msg import Odometry
+from geometry_msgs.msg import Twist
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.animation as animation
 from tf.transformations import euler_from_quaternion
-import csv
+import open3d as o3d
+import random
+import time
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from gazebo_msgs.srv import GetModelState
 
 # Global variables to store the latest data
-latest_ranges = []
-latest_angles = []
+ranges = []
+angles = []
 range_max = 3.5
 
 # Robot's current pose
@@ -19,14 +20,25 @@ robot_x = 0.0
 robot_y = 0.0
 robot_yaw = 0.0
 
-# Global map
-global_map = []
+# Global map (point cloud)
+global_map = o3d.geometry.PointCloud()
 
 # File to save the map data
-output_file = 'lidar_map_data.csv'
+output_file = 'lidar_map_data.pcd'
+
+# Parameters for obstacle avoidance and exploration
+safe_distance = 0.5  # Minimum safe distance from obstacles
+exploration_rate = 0.1  # Rate of exploration (higher means more aggressive)
+stuck_duration_threshold = 5.0  # Duration to consider the robot stuck
+stuck_counter_threshold = 30  # Number of stuck detections before changing behavior
+
+# State machine variables
+last_move_time = 0
+stuck_counter = 0
+exploration_mode = True
 
 def lidar_callback(data):
-    global latest_ranges, latest_angles, range_max
+    global ranges, angles, range_max
 
     angle_min = data.angle_min
     angle_max = data.angle_max
@@ -38,95 +50,156 @@ def lidar_callback(data):
     angles = angle_min + np.arange(num_points) * angle_increment
 
     valid_indices = np.isfinite(ranges)
-    latest_ranges = ranges[valid_indices]
-    latest_angles = angles[valid_indices]
+    ranges = ranges[valid_indices]
+    angles = angles[valid_indices]
 
-def odom_callback(data):
+    angles = np.array(angles)
+    ranges = np.array(ranges)
+
+def get_robot_position():
     global robot_x, robot_y, robot_yaw
 
-    robot_x = data.pose.pose.position.x
-    robot_y = data.pose.pose.position.y
-    
-    orientation_q = data.pose.pose.orientation
-    orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
-    (roll, pitch, yaw) = euler_from_quaternion(orientation_list)
-    robot_yaw = yaw
+    try:
+        rospy.wait_for_service('/gazebo/get_model_state', timeout=1.0)
+        get_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
+        response = get_state(model_name='turtlebot3_burger', relative_entity_name='world')
+
+        x = response.pose.position.x
+        y = response.pose.position.y
+        # Log the robot's position
+        rospy.loginfo("Robot position: ({}, {})".format(x, y))
+        
+        orientation_q = response.pose.orientation
+        orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
+        (_, _, yaw) = euler_from_quaternion(orientation_list)
+
+        robot_x, robot_y, robot_yaw = x, y, yaw
+
+    except rospy.ServiceException as e:
+        rospy.logerr("Service call failed: %s" % e)
 
 def update_map():
-    global global_map, latest_ranges, latest_angles
+    global global_map, ranges, angles, robot_x, robot_y, robot_yaw
 
-    if len(latest_ranges) == 0:
+    if len(ranges) == 0:
         rospy.logwarn("No LiDAR data received")
         return
 
-    x_coords = latest_ranges * np.cos(latest_angles + robot_yaw) + robot_x
-    y_coords = latest_ranges * np.sin(latest_angles + robot_yaw) + robot_y
+    # Convert polar coordinates to Cartesian coordinates
+    x = ranges * np.cos(angles + robot_yaw) + robot_x
+    y = ranges * np.sin(angles + robot_yaw) + robot_y
+    
+    new_points = np.vstack((x, y, np.zeros_like(x))).T
 
-    for i in range(len(x_coords)):
-        global_map.append((x_coords[i], y_coords[i]))
+    new_pcd = o3d.geometry.PointCloud()
+    new_pcd.points = o3d.utility.Vector3dVector(new_points)
+    
+    global_map += new_pcd
 
-def save_map_to_csv(filename, map_data):
-    with open(filename, 'w', newline='') as csvfile:
-        csvwriter = csv.writer(csvfile)
-        csvwriter.writerow(['x', 'y'])
-        csvwriter.writerows(map_data)
+def save_map_to_pcd(filename, map_data):
+    o3d.io.write_point_cloud(filename, map_data)
     rospy.loginfo("Map data saved to {}".format(filename))
 
 def clean_up_map(map_data, epsilon=0.1):
-    # Simple cleanup: reduce the number of points by downsampling
-    cleaned_map = []
-    if len(map_data) == 0:
-        return cleaned_map
+    map_data = map_data.voxel_down_sample(voxel_size=epsilon)
+    return map_data
 
-    map_data = np.array(map_data)
-    prev_point = map_data[0]
-    cleaned_map.append(prev_point)
+def normalise_angle(angles):
+    return np.mod(angles, 2 * np.pi)
 
-    for point in map_data[1:]:
-        if np.linalg.norm(point - prev_point) > epsilon:
-            cleaned_map.append(point)
-            prev_point = point
+def is_angle_in_range(angles, start, end):
+    norm_angles = normalise_angle(angles)
+    norm_start = normalise_angle(np.array([start]))[0]
+    norm_end = normalise_angle(np.array([end]))[0]
 
-    return cleaned_map
+    if norm_start < norm_end:
+        return (norm_start <= norm_angles) & (norm_angles < norm_end)
+    else:
+        return (norm_start <= norm_angles) | (norm_angles < norm_end)
 
-def on_close(event):
-    cleaned_map = clean_up_map(global_map)
-    save_map_to_csv(output_file, cleaned_map)
-    rospy.signal_shutdown('Window closed')
+def avoid_obstacles():
+    global ranges, angles, safe_distance, last_move_time, stuck_counter, exploration_mode
 
-def animate(i):
-    update_map()
+    if len(angles) == 0 or len(ranges) == 0 or len(angles) != len(ranges):
+        rospy.logwarn("Invalid LiDAR data")
+        return Twist()
 
-    if len(global_map) == 0:
-        return
+    # Determine points in the front range of the robot
+    angles_in_range = is_angle_in_range(angles, -np.pi / 4, np.pi / 4)
+    ranges_in_range = ranges[angles_in_range]
 
-    x_coords, y_coords = zip(*global_map)
+    twist = Twist()
+    if len(ranges_in_range) == 0:
+        twist.linear.x = 0.0
+        twist.angular.z = 0.5  # Turn in place if no data
+        return twist
 
-    ax.clear()
-    ax.plot(x_coords, y_coords, 'b.', markersize=2)
-    # Zoom in by setting tighter x and y limits
-    zoom_factor = 5  # Change this value to zoom in/out
-    ax.set_xlim(robot_x - zoom_factor, robot_x + zoom_factor)
-    ax.set_ylim(robot_y - zoom_factor, robot_y + zoom_factor)
-    ax.set_xlabel('X [m]')
-    ax.set_ylabel('Y [m]')
-    ax.set_title('2D LiDAR Map')
-    ax.grid(True)
+    min_distance = np.min(ranges_in_range)
+    if min_distance < safe_distance:
+        twist.linear.x = 0.0
+        twist.angular.z = 0.5  # Turn in place to avoid obstacle
+
+        current_time = time.time()
+        if current_time - last_move_time > stuck_duration_threshold:
+            stuck_counter += 1
+            last_move_time = current_time
+        else:
+            stuck_counter = 0
+
+        if stuck_counter > stuck_counter_threshold:
+            exploration_mode = not exploration_mode
+            stuck_counter = 0
+    else:
+        twist.linear.x = 0.2  # Move forward
+        twist.angular.z = random.uniform(-0.5, 0.5)  # Random slight turn for exploration
+        last_move_time = time.time()
+        stuck_counter = 0
+
+    return twist
 
 def lidar_listener():
-    # Check if ROS node is already initialized
     if not rospy.core.is_initialized():
         rospy.init_node('lidar_listener', anonymous=True)
     
     rospy.Subscriber('/scan', LaserScan, lidar_callback)
-    rospy.Subscriber('/odom', Odometry, odom_callback)
-    ani = animation.FuncAnimation(fig, animate, interval=100)
-    fig.canvas.mpl_connect('close_event', on_close)
+
+    cmd_vel_pub = rospy.Publisher('/cmd_vel', Twist, queue_size=10)
+    
+    rate = rospy.Rate(10)
+
+    fig, ax = plt.subplots(figsize=(10, 10))
+    sc = ax.scatter([], [], s=1)
+    ax.set_xlim(range_max, -range_max)
+    ax.set_ylim(-range_max, range_max)
+    ax.set_xlabel('Y Coordinate')
+    ax.set_ylabel('X Coordinate')
+    ax.set_title('Real-Time Global Map')
+    ax.grid(True)
+
+    def update_plot(frame):
+        get_robot_position()
+        update_map()
+        points = np.asarray(global_map.points)
+        if points.size > 0:
+            x = points[:, 0]
+            y = points[:, 1]
+            sc.set_offsets(np.c_[y, x])  # Swap x and y for plotting
+            sc.set_color('black')  # Set all points to black
+        twist = avoid_obstacles()
+        cmd_vel_pub.publish(twist)
+        return sc,
+
+    ani = FuncAnimation(fig, update_plot, frames=range(100), interval=100, blit=True)
+
     plt.show()
-    rospy.spin()
+
+    while not rospy.is_shutdown():
+        rate.sleep()
+
+    cleaned_map = clean_up_map(global_map)
+    save_map_to_pcd(output_file, cleaned_map)
 
 if __name__ == '__main__':
-    fig, ax = plt.subplots(figsize=(10, 10))
     try:
         lidar_listener()
     except rospy.ROSInterruptException:
