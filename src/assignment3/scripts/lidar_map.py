@@ -27,7 +27,7 @@ global_map = o3d.geometry.PointCloud()
 output_file = 'lidar_map_data.pcd'
 
 # Parameters for obstacle avoidance and exploration
-safe_distance = 0.5  # Minimum safe distance from obstacles
+safe_distance = 0.3  # Minimum safe distance from obstacles
 exploration_rate = 0.1  # Rate of exploration (higher means more aggressive)
 stuck_duration_threshold = 5.0  # Duration to consider the robot stuck
 stuck_counter_threshold = 30  # Number of stuck detections before changing behavior
@@ -131,13 +131,13 @@ def avoid_obstacles():
     twist = Twist()
     if len(ranges_in_range) == 0:
         twist.linear.x = 0.0
-        twist.angular.z = 0.5  # Turn in place if no data
+        twist.angular.z = 0.2  # Turn in place if no data
         return twist
 
     min_distance = np.min(ranges_in_range)
     if min_distance < safe_distance:
         twist.linear.x = 0.0
-        twist.angular.z = 0.5  # Turn in place to avoid obstacle
+        twist.angular.z = 0.2  # Turn in place to avoid obstacle
 
         current_time = time.time()
         if current_time - last_move_time > stuck_duration_threshold:
@@ -151,7 +151,7 @@ def avoid_obstacles():
             stuck_counter = 0
     else:
         twist.linear.x = 0.2  # Move forward
-        twist.angular.z = random.uniform(-0.5, 0.5)  # Random slight turn for exploration
+        twist.angular.z = random.uniform(-0.2, 0.2)  # Random slight turn for exploration
         last_move_time = time.time()
         stuck_counter = 0
 
