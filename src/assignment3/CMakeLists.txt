@@ -10,6 +10,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
 )
 
+add_message_files(
+  FILES
+  SerialisedDict.msg
+)
+
 generate_messages(
   DEPENDENCIES
   gazebo_msgs

@@ -9,6 +9,11 @@ import sys
 from geometry_msgs.msg import Twist
 from gazebo_msgs.srv import DeleteModel
 import torch_directml
+from collections import OrderedDict
+import base64
+import json
+from std_msgs.msg import Header
+from assignment3.msg import SerialisedDict
 
 path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
 
@@ -41,40 +46,23 @@ class ExplorationNode:
         rospy.on_shutdown(self.cleanup)
         rospy.loginfo("Subscribers and publishers initialized")
 
+    def deserialise_ordered_dict(self, serialized_str):
+        deserialized_dict = json.loads(serialized_str, object_pairs_hook=OrderedDict)
+        for key in deserialized_dict:
+            deserialized_dict[key] = np.frombuffer(base64.b64decode(deserialized_dict[key]), dtype=np.int)
+        return deserialized_dict
+
+    def serialize_ordered_dict(self, ordered_dict):
+        serialized_dict = OrderedDict()
+        for key, array in ordered_dict.items():
+            serialized_dict[key] = base64.b64encode(array.tobytes()).decode('utf-8')
+        return json.dumps(serialized_dict)
+
     def global_policy_callback(self, data):
         rospy.loginfo("Received global policy update")
-        global_policy = np.array(data.data)
         
-        # Convert the global policy array into a dictionary that the model can use
-        params_dict = self.array_to_parameters_dict(global_policy)
-        
-        if params_dict:
-            self.model.set_parameters(params_dict)
-            rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
-        else:
-            rospy.logerr(f"[{self.namespace}] Failed to update local model with global policy")
-
-    def array_to_parameters_dict(self, global_policy):
-        # Convert global_policy array to parameters dictionary
-        params_dict = {}
-        
-        try:
-            param_list = self.model.get_parameters()
-            flat_param_list = np.hstack([param.flatten() for param in param_list.values()])
-            if len(global_policy) == len(flat_param_list):
-                index = 0
-                for key, param in param_list.items():
-                    shape = param.shape
-                    size = param.size
-                    params_dict[key] = global_policy[index:index+size].reshape(shape)
-                    index += size
-                return params_dict
-            else:
-                rospy.logerr("Global policy size does not match the model's parameter size")
-                return None
-        except Exception as e:
-            rospy.logerr(f"Error converting global policy to parameters dict: {e}")
-            return None
+        self.set_params_from_list(self.model, data.data, self.model.get_parameters())
+        rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
 
     def lidar_callback(self, data):
         rospy.loginfo("Lidar callback triggered")
@@ -108,9 +96,10 @@ class ExplorationNode:
             except rospy.ROSException as e:
                 rospy.logerr(f"[{self.namespace}] Step failed: {e}")
                 return
+            
+            data = Float32MultiArray(data=self.get_params_as_list(self.model)[0])
 
-            policy_update = Float32MultiArray(data=action)
-            self.policy_pub.publish(policy_update)
+            self.policy_pub.publish(data)
             rospy.loginfo(f"[{self.namespace}] Published local policy update")
 
             if done:
