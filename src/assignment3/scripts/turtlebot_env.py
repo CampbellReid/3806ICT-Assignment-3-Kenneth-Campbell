@@ -6,7 +6,7 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 from tf.transformations import euler_from_quaternion
 import open3d as o3d
-from gazebo_msgs.srv import GetModelState
+from gazebo_msgs.srv import GetModelState, GetModelStateRequest
 
 class TurtleBotEnv(gym.Env):
     def __init__(self, namespace=''):
@@ -14,11 +14,12 @@ class TurtleBotEnv(gym.Env):
         
         # Namespace handling
         self.namespace = namespace
+        rospy.loginfo(f"Initializing TurtleBotEnv with namespace: {self.namespace}")
         
         # Action space: Linear and angular velocity
         self.action_space = spaces.Box(low=np.array([-0.2, -2.0]), high=np.array([0.2, 2.0]), dtype=np.float32)
         
-        # Observation space: Lidar ranges
+        # Observation space: Variable length LiDAR ranges
         self.observation_space = spaces.Box(low=0, high=10, shape=(360,), dtype=np.float32)
         
         # ROS publishers and subscribers
@@ -36,21 +37,35 @@ class TurtleBotEnv(gym.Env):
         self.global_map = o3d.geometry.PointCloud()
         self.output_file = f'{self.namespace}_lidar_map_data.pcd'
         self.safe_distance = 0.3
+        rospy.loginfo("TurtleBotEnv initialization complete")
 
     def lidar_callback(self, data):
+        rospy.logdebug("LiDAR callback triggered")
         angle_min = data.angle_min
         angle_max = data.angle_max
         angle_increment = data.angle_increment
         ranges = np.array(data.ranges)
+
+        if not np.any(np.isfinite(ranges)):
+            rospy.logwarn(f"[{self.namespace}] No valid lidar data received")
+            return
+
         valid_indices = np.isfinite(ranges)
-        self.ranges = ranges[valid_indices]
-        self.angles = angle_min + np.arange(len(ranges)) * angle_increment
+        valid_ranges = ranges[valid_indices]
+        valid_angles = angle_min + np.arange(len(valid_ranges)) * angle_increment
+        
+        self.ranges[:len(valid_ranges)] = valid_ranges
+        self.angles[:len(valid_angles)] = valid_angles
+        rospy.loginfo(f"LiDAR data received with {len(valid_ranges)} valid ranges")
 
     def get_robot_position(self):
         try:
-            rospy.wait_for_service(f'/{self.namespace}/gazebo/get_model_state', timeout=1.0)
+            rospy.wait_for_service(f'/{self.namespace}/gazebo/get_model_state', timeout=2.0)
             get_state = rospy.ServiceProxy(f'/{self.namespace}/gazebo/get_model_state', GetModelState)
-            response = get_state(model_name='turtlebot3_burger', relative_entity_name='world')
+            request = GetModelStateRequest()
+            request.model_name = self.namespace
+            request.relative_entity_name = 'world'
+            response = get_state(request)
             x = response.pose.position.x
             y = response.pose.position.y
             orientation_q = response.pose.orientation
@@ -59,7 +74,11 @@ class TurtleBotEnv(gym.Env):
             self.robot_x, self.robot_y, self.robot_yaw = x, y, yaw
             rospy.loginfo(f"Robot position: x={self.robot_x}, y={self.robot_y}, yaw={self.robot_yaw}")
         except rospy.ServiceException as e:
-            rospy.logerr("Service call failed: %s" % e)
+            rospy.logerr(f"Service call failed: {e}")
+        except rospy.ROSException as e:
+            rospy.logerr(f"Timeout exceeded while waiting for service: {e}")
+        except Exception as e:
+            rospy.logerr(f"Unexpected error: {e}")
 
     def update_map(self):
         if len(self.ranges) == 0:
@@ -76,13 +95,15 @@ class TurtleBotEnv(gym.Env):
 
     def save_map_to_pcd(self):
         o3d.io.write_point_cloud(self.output_file, self.global_map)
-        rospy.loginfo("Map data saved to {}".format(self.output_file))
+        rospy.loginfo(f"Map data saved to {self.output_file}")
 
     def step(self, action):
+        rospy.loginfo(f"Received action: {action}")
         vel_cmd = Twist()
         vel_cmd.linear.x = action[0]
         vel_cmd.angular.z = action[1]
         self.velocity_pub.publish(vel_cmd)
+        rospy.loginfo(f"Published velocity command: linear={action[0]}, angular={action[1]}")
         rospy.sleep(0.1)
         self.get_robot_position()
         self.update_map()
@@ -90,18 +111,21 @@ class TurtleBotEnv(gym.Env):
         reward = -np.min(state) if np.min(state) < self.safe_distance else np.mean(state)
         done = np.min(state) < self.safe_distance
         info = {}
-        rospy.loginfo(f"Step action: {action}, state: {state}, reward: {reward}, done: {done}")
+        rospy.loginfo(f"Step result - state: {state.shape}, reward: {reward}, done: {done}")
         return state, reward, done, info
 
     def reset(self):
+        rospy.loginfo("Resetting environment")
         self.global_map.clear()
         self.ranges = np.zeros(360)
         self.robot_x, self.robot_y, self.robot_yaw = 0.0, 0.0, 0.0
-        rospy.loginfo("Environment reset")
+        rospy.loginfo("Environment reset complete")
         return self.ranges
 
     def render(self, mode='human'):
-        pass
+        rospy.logdebug("Render called but not implemented")
 
     def close(self):
+        rospy.loginfo("Closing environment and saving map data")
         self.save_map_to_pcd()
+        rospy.loginfo("Environment closed")

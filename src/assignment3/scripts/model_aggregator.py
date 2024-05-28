@@ -1,3 +1,5 @@
+#!/home/campbell/miniconda3/envs/ros_noetic/bin python
+
 import rospy
 from std_msgs.msg import Float32MultiArray
 import numpy as np

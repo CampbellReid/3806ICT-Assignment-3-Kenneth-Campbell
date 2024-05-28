@@ -1,3 +1,5 @@
+#!/home/campbell/miniconda3/envs/ros_noetic/bin python
+
 import rospy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
@@ -6,6 +8,7 @@ import numpy as np
 import sys
 from geometry_msgs.msg import Twist
 from gazebo_msgs.srv import DeleteModel
+import torch_directml
 
 path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
 
@@ -22,8 +25,10 @@ class ExplorationNode:
         self.namespace = rospy.get_param('~namespace')
         rospy.loginfo(f"Namespace set to: {self.namespace}")
 
+        dml = torch_directml.device()
+
         self.env = TurtleBotEnv(self.namespace)
-        self.model = PPO('MlpPolicy', self.env, verbose=1)
+        self.model = PPO('MlpPolicy', self.env, verbose=1, device=dml)
         rospy.loginfo("TurtleBot environment and PPO model initialized")
 
         self.lidar_data = np.zeros(360)
@@ -39,8 +44,37 @@ class ExplorationNode:
     def global_policy_callback(self, data):
         rospy.loginfo("Received global policy update")
         global_policy = np.array(data.data)
-        self.model.set_parameters(global_policy)
-        rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
+        
+        # Convert the global policy array into a dictionary that the model can use
+        params_dict = self.array_to_parameters_dict(global_policy)
+        
+        if params_dict:
+            self.model.set_parameters(params_dict)
+            rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
+        else:
+            rospy.logerr(f"[{self.namespace}] Failed to update local model with global policy")
+
+    def array_to_parameters_dict(self, global_policy):
+        # Convert global_policy array to parameters dictionary
+        params_dict = {}
+        
+        try:
+            param_list = self.model.get_parameters()
+            flat_param_list = np.hstack([param.flatten() for param in param_list.values()])
+            if len(global_policy) == len(flat_param_list):
+                index = 0
+                for key, param in param_list.items():
+                    shape = param.shape
+                    size = param.size
+                    params_dict[key] = global_policy[index:index+size].reshape(shape)
+                    index += size
+                return params_dict
+            else:
+                rospy.logerr("Global policy size does not match the model's parameter size")
+                return None
+        except Exception as e:
+            rospy.logerr(f"Error converting global policy to parameters dict: {e}")
+            return None
 
     def lidar_callback(self, data):
         rospy.loginfo("Lidar callback triggered")
@@ -54,20 +88,26 @@ class ExplorationNode:
             return
 
         valid_indices = np.isfinite(ranges)
-        self.lidar_data = ranges[valid_indices]
-        angles = angle_min + np.arange(len(ranges)) * angle_increment
-        self.lidar_data = ranges[valid_indices]
+        self.lidar_data = np.zeros(360)
+        valid_ranges = ranges[valid_indices]
+        valid_angles = angle_min + np.arange(len(valid_ranges)) * angle_increment
+        
+        self.lidar_data[:len(valid_ranges)] = valid_ranges
 
-        rospy.loginfo(f"[{self.namespace}] Lidar data processed: {len(self.lidar_data)} valid readings")
+        rospy.loginfo(f"[{self.namespace}] Lidar data processed: {len(valid_ranges)} valid readings")
         self.perform_exploration()
 
     def perform_exploration(self):
-        if len(self.lidar_data) == 360:
+        if len(self.lidar_data) > 0:
             rospy.loginfo(f"[{self.namespace}] Performing exploration step")
             action, _states = self.model.predict(self.lidar_data)
             rospy.loginfo(f"[{self.namespace}] Action predicted: {action}")
-            state, reward, done, info = self.env.step(action)
-            rospy.loginfo(f"[{self.namespace}] Step result - State: {state}, Reward: {reward}, Done: {done}, Info: {info}")
+            try:
+                state, reward, done, info = self.env.step(action)
+                rospy.loginfo(f"[{self.namespace}] Step result - State: {state}, Reward: {reward}, Done: {done}, Info: {info}")
+            except rospy.ROSException as e:
+                rospy.logerr(f"[{self.namespace}] Step failed: {e}")
+                return
 
             policy_update = Float32MultiArray(data=action)
             self.policy_pub.publish(policy_update)
