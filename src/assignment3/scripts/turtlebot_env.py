@@ -22,8 +22,8 @@ class TurtleBotEnv(gym.Env):
         self.observation_space = spaces.Box(low=0, high=10, shape=(360,), dtype=np.float32)
         
         # ROS publishers and subscribers
-        self.velocity_pub = rospy.Publisher(f'{self.namespace}/cmd_vel', Twist, queue_size=10)
-        self.lidar_sub = rospy.Subscriber(f'{self.namespace}/scan', LaserScan, self.lidar_callback)
+        self.velocity_pub = rospy.Publisher(f'/{self.namespace}/cmd_vel', Twist, queue_size=10)
+        self.lidar_sub = rospy.Subscriber(f'/{self.namespace}/scan', LaserScan, self.lidar_callback)
         
         # Global variables to store the latest data
         self.ranges = np.zeros(360)

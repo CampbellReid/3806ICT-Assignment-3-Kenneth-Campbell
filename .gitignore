@@ -5,3 +5,4 @@ ppo_model_worker1.zip
 ppo_model_worker2.zip
 lidar_map_data.csv
 /env
+src/assignment3/scripts/__pycache__/turtlebot_env.cpython-38.pyc
