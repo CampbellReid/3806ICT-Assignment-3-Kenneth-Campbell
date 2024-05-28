@@ -19,12 +19,15 @@ class ModelAggregatorNode:
         self.local_policies = []
 
     def policy_callback(self, data):
-        self.local_policies.append(np.array(data.data))
+        local_policy = np.array(data.data)
+        self.local_policies.append(local_policy)
+        rospy.loginfo(f"Received local policy update: {local_policy}")
         self.aggregate_policies()
 
     def aggregate_policies(self):
         if len(self.local_policies) > 0:
             global_policy = np.mean(self.local_policies, axis=0)
+            rospy.loginfo(f"Aggregated global policy: {global_policy}")
             global_policy_msg = Float32MultiArray(data=global_policy)
             self.global_policy_pub.publish(global_policy_msg)
             rospy.loginfo("Published global policy update")

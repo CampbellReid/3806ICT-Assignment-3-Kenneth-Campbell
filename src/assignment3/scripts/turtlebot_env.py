@@ -57,6 +57,7 @@ class TurtleBotEnv(gym.Env):
             orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
             _, _, yaw = euler_from_quaternion(orientation_list)
             self.robot_x, self.robot_y, self.robot_yaw = x, y, yaw
+            rospy.loginfo(f"Robot position: x={self.robot_x}, y={self.robot_y}, yaw={self.robot_yaw}")
         except rospy.ServiceException as e:
             rospy.logerr("Service call failed: %s" % e)
 
@@ -71,6 +72,7 @@ class TurtleBotEnv(gym.Env):
         new_pcd = o3d.geometry.PointCloud()
         new_pcd.points = o3d.utility.Vector3dVector(new_points)
         self.global_map += new_pcd
+        rospy.loginfo(f"Updated map with new points: {new_points.shape[0]} points added")
 
     def save_map_to_pcd(self):
         o3d.io.write_point_cloud(self.output_file, self.global_map)
@@ -88,12 +90,14 @@ class TurtleBotEnv(gym.Env):
         reward = -np.min(state) if np.min(state) < self.safe_distance else np.mean(state)
         done = np.min(state) < self.safe_distance
         info = {}
+        rospy.loginfo(f"Step action: {action}, state: {state}, reward: {reward}, done: {done}")
         return state, reward, done, info
 
     def reset(self):
         self.global_map.clear()
         self.ranges = np.zeros(360)
         self.robot_x, self.robot_y, self.robot_yaw = 0.0, 0.0, 0.0
+        rospy.loginfo("Environment reset")
         return self.ranges
 
     def render(self, mode='human'):
