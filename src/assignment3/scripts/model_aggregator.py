@@ -6,9 +6,12 @@ class ModelAggregatorNode:
     def __init__(self):
         rospy.init_node('model_aggregator', anonymous=True)
         
+        first_namespace = rospy.get_param('~first_namespace')
+        second_namespace = rospy.get_param('~second_namespace')
+
         self.policy_subs = []
-        self.policy_subs.append(rospy.Subscriber('/turtlebot1/local_policy_update', Float32MultiArray, self.policy_callback))
-        self.policy_subs.append(rospy.Subscriber('/turtlebot2/local_policy_update', Float32MultiArray, self.policy_callback))
+        self.policy_subs.append(rospy.Subscriber(f'/{first_namespace}/local_policy_update', Float32MultiArray, self.policy_callback))
+        self.policy_subs.append(rospy.Subscriber(f'/{second_namespace}/local_policy_update', Float32MultiArray, self.policy_callback))
         # Add more subscribers as needed
         
         self.global_policy_pub = rospy.Publisher('/global_policy_update', Float32MultiArray, queue_size=10)

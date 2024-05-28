@@ -3,10 +3,6 @@ from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
 from stable_baselines3 import PPO
 import numpy as np
-import argparse
-import sys
-import os
-
 import sys
 
 path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
@@ -17,17 +13,18 @@ if path_to_add not in sys.path:
 from turtlebot_env import TurtleBotEnv
 
 class ExplorationNode:
-    def __init__(self, namespace):
-        rospy.init_node(f'{namespace}_exploration_node', anonymous=True)
+    def __init__(self):
+        rospy.init_node('exploration_node', anonymous=True)
         
-        self.env = TurtleBotEnv(namespace)
+        self.namespace = rospy.get_param('~namespace')
+        
+        self.env = TurtleBotEnv(self.namespace)
         self.model = PPO('MlpPolicy', self.env, verbose=1)
         
         self.lidar_data = np.zeros(360)
-        self.namespace = namespace
         
-        self.lidar_sub = rospy.Subscriber(f'{namespace}/scan', LaserScan, self.lidar_callback)
-        self.policy_pub = rospy.Publisher(f'{namespace}/local_policy_update', Float32MultiArray, queue_size=10)
+        self.lidar_sub = rospy.Subscriber(f'{self.namespace}/scan', LaserScan, self.lidar_callback)
+        self.policy_pub = rospy.Publisher(f'{self.namespace}/local_policy_update', Float32MultiArray, queue_size=10)
         self.global_policy_sub = rospy.Subscriber('/global_policy_update', Float32MultiArray, self.global_policy_callback)
 
     def global_policy_callback(self, data):
@@ -57,12 +54,8 @@ class ExplorationNode:
                 self.env.reset()
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Exploration Node')
-    parser.add_argument('--namespace', type=str, required=True, help='Namespace for the TurtleBot')
-    args, unknown = parser.parse_known_args()  # This allows argparse to ignore unknown arguments
-    
     try:
-        exploration_node = ExplorationNode(args.namespace)
+        exploration_node = ExplorationNode()
         rospy.spin()
     except rospy.ROSInterruptException:
         pass
