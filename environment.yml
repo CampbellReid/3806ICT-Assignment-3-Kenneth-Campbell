@@ -20,4 +20,5 @@ dependencies:
   - catkin_pkg
   - rospkg
   - rosdep
+  - stable-baselines3
   - pip
