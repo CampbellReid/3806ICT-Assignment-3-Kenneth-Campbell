@@ -1,5 +1,3 @@
-#!/home/campbell/miniconda3/envs/ros_noetic/bin python
-
 import rospy
 from sensor_msgs.msg import LaserScan
 from std_msgs.msg import Float32MultiArray
@@ -8,11 +6,6 @@ import numpy as np
 import sys
 from geometry_msgs.msg import Twist
 from gazebo_msgs.srv import DeleteModel
-import torch_directml
-from collections import OrderedDict
-import base64
-import json
-from std_msgs.msg import Header
 from assignment3.msg import SerialisedDict
 
 path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
@@ -21,6 +14,41 @@ if path_to_add not in sys.path:
     sys.path.insert(0, path_to_add)
 
 from turtlebot_env import TurtleBotEnv
+import serialiser
+
+import os
+directml_enabled = os.getenv('DIRECTML_ENABLED')
+
+if directml_enabled == 'true':
+    import torch_directml
+    print('DIRECTML_ENABLED is set to true')
+else:
+    print('DIRECTML_ENABLED is set to false or not set')
+
+def print_dict_structure(d, indent=0):
+    """
+    Prints the structure of a dictionary. For each value, if it's a dictionary, recursively print its structure;
+    otherwise, print its type.
+
+    :param d: The dictionary to print the structure of
+    :param indent: The current indentation level (used for nested dictionaries)
+    """
+    # Check if the input is a dictionary
+    if isinstance(d, dict):
+        # Iterate through all key-value pairs in the dictionary
+        for key, value in d.items():
+            # Print the key with the appropriate indentation
+            print(' ' * indent + str(key) + ': ', end='')
+            # If the value is another dictionary, recursively call the function
+            if isinstance(value, dict):
+                print()
+                print_dict_structure(value, indent + 4)
+            else:
+                # Otherwise, print the type of the value
+                print(type(value).__name__)
+    else:
+        # If the input is not a dictionary, print its type
+        print(type(d).__name__)
 
 class ExplorationNode:
     def __init__(self):
@@ -30,38 +58,36 @@ class ExplorationNode:
         self.namespace = rospy.get_param('~namespace')
         rospy.loginfo(f"Namespace set to: {self.namespace}")
 
-        dml = torch_directml.device()
-
         self.env = TurtleBotEnv(self.namespace)
-        self.model = PPO('MlpPolicy', self.env, verbose=1, device=dml)
+        
+        if directml_enabled == 'true':
+            dml = torch_directml.device()
+            self.model = PPO('MlpPolicy', self.env, verbose=1, device=dml)
+        else:
+            self.model = PPO('MlpPolicy', self.env, verbose=1)
+        
+        print_dict_structure(dict(self.model.get_parameters()))
+        
         rospy.loginfo("TurtleBot environment and PPO model initialized")
 
         self.lidar_data = np.zeros(360)
 
         self.lidar_sub = rospy.Subscriber(f'/{self.namespace}/scan', LaserScan, self.lidar_callback)
-        self.policy_pub = rospy.Publisher(f'/{self.namespace}/local_policy_update', Float32MultiArray, queue_size=10)
-        self.global_policy_sub = rospy.Subscriber('/global_policy_update', Float32MultiArray, self.global_policy_callback)
+        self.policy_pub = rospy.Publisher(f'/{self.namespace}/local_policy_update', SerialisedDict, queue_size=10)
+        self.global_policy_sub = rospy.Subscriber('/global_policy_update', SerialisedDict, self.global_policy_callback)
         self.velocity_pub = rospy.Publisher(f'/{self.namespace}/cmd_vel', Twist, queue_size=10)
 
         rospy.on_shutdown(self.cleanup)
         rospy.loginfo("Subscribers and publishers initialized")
 
-    def deserialise_ordered_dict(self, serialized_str):
-        deserialized_dict = json.loads(serialized_str, object_pairs_hook=OrderedDict)
-        for key in deserialized_dict:
-            deserialized_dict[key] = np.frombuffer(base64.b64decode(deserialized_dict[key]), dtype=np.int)
-        return deserialized_dict
-
-    def serialize_ordered_dict(self, ordered_dict):
-        serialized_dict = OrderedDict()
-        for key, array in ordered_dict.items():
-            serialized_dict[key] = base64.b64encode(array.tobytes()).decode('utf-8')
-        return json.dumps(serialized_dict)
-
     def global_policy_callback(self, data):
         rospy.loginfo("Received global policy update")
         
-        self.set_params_from_list(self.model, data.data, self.model.get_parameters())
+        global_params = serialiser.policy_bytes_to_dict(data)
+        local_params = self.model.get_parameters()
+        local_params['policy'] = global_params
+        self.model.set_parameters(local_params)
+        
         rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
 
     def lidar_callback(self, data):
@@ -71,18 +97,23 @@ class ExplorationNode:
         angle_increment = data.angle_increment
         ranges = np.array(data.ranges)
 
-        if not np.any(np.isfinite(ranges)):
-            rospy.logwarn(f"[{self.namespace}] No valid lidar data received")
-            return
+        # Replace all infinities with -1
+        ranges[np.isinf(ranges)] = -1
 
-        valid_indices = np.isfinite(ranges)
-        self.lidar_data = np.zeros(360)
-        valid_ranges = ranges[valid_indices]
-        valid_angles = angle_min + np.arange(len(valid_ranges)) * angle_increment
+        # if not np.any(np.isfinite(ranges)):
+        #     rospy.logwarn(f"[{self.namespace}] No valid lidar data received")
+        #     return
+
+        self.lidar_data = ranges
+
+        # valid_indices = np.isfinite(ranges)
+        # self.lidar_data = np.zeros(360)
+        # valid_ranges = ranges[valid_indices]
+        # valid_angles = angle_min + np.arange(len(valid_ranges)) * angle_increment
         
-        self.lidar_data[:len(valid_ranges)] = valid_ranges
+        # self.lidar_data[:len(valid_ranges)] = valid_ranges
 
-        rospy.loginfo(f"[{self.namespace}] Lidar data processed: {len(valid_ranges)} valid readings")
+        rospy.loginfo(f"[{self.namespace}] Lidar data processed")
         self.perform_exploration()
 
     def perform_exploration(self):
@@ -96,10 +127,8 @@ class ExplorationNode:
             except rospy.ROSException as e:
                 rospy.logerr(f"[{self.namespace}] Step failed: {e}")
                 return
-            
-            data = Float32MultiArray(data=self.get_params_as_list(self.model)[0])
 
-            self.policy_pub.publish(data)
+            self.policy_pub.publish(serialiser.dict_to_policy_bytes(dict(self.model.get_parameters())['policy']))
             rospy.loginfo(f"[{self.namespace}] Published local policy update")
 
             if done:

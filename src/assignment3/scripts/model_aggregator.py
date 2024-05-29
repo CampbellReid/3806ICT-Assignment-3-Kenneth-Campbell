@@ -3,10 +3,18 @@
 import rospy
 from std_msgs.msg import Float32MultiArray
 import numpy as np
-import json
-import base64
-from collections import OrderedDict
 from assignment3.msg import SerialisedDict
+from collections import OrderedDict
+import sys
+
+path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
+
+if path_to_add not in sys.path:
+    sys.path.insert(0, path_to_add)
+
+import serialiser
+
+import numpy as np
 
 class ModelAggregatorNode:
     def __init__(self):
@@ -24,45 +32,19 @@ class ModelAggregatorNode:
         
         self.local_policies = []
 
-    def deserialise_ordered_dict(self, serialized_str):
-        deserialized_dict = json.loads(serialized_str, object_pairs_hook=OrderedDict)
-        for key in deserialized_dict:
-            deserialized_dict[key] = np.frombuffer(base64.b64decode(deserialized_dict[key]), dtype=np.int)
-        return deserialized_dict
-
     def policy_callback(self, data):
-        local_policy = self.deserialise_ordered_dict(data.json_data)
+        local_policy = serialiser.policy_bytes_to_dict(data)
         self.local_policies.append(local_policy)
         rospy.loginfo(f"Received local policy update: {local_policy}")
         self.aggregate_policies()
 
-    def average_ordered_dicts(self, dict1, dict2):
-        # Initialize the result OrderedDict
-        averaged_dict = OrderedDict()
-
-        # Iterate through the keys of the OrderedDicts
-        for key in dict1:
-            # Ensure both dictionaries have the same structure
-            if key in dict2:
-                # Compute the average of the corresponding ndarrays
-                averaged_array = (dict1[key] + dict2[key]) / 2.0
-                # Add the averaged array to the new OrderedDict
-                averaged_dict[key] = averaged_array
-            else:
-                raise KeyError(f"Key '{key}' not found in both OrderedDicts")
-
-        return averaged_dict
-
-    def serialize_ordered_dict(self, ordered_dict):
-        serialized_dict = OrderedDict()
-        for key, array in ordered_dict.items():
-            serialized_dict[key] = base64.b64encode(array.tobytes()).decode('utf-8')
-        return json.dumps(serialized_dict)
-
     def aggregate_policies(self):
         if len(self.local_policies) == 2:
-            global_policy = self.average_ordered_dicts(self.local_policies[0], self.local_policies[1])
+            global_policy = serialiser.average_policy(self.local_policies[0], self.local_policies[1])
             rospy.loginfo(f"Aggregated global policy: {global_policy}")
+            
+            global_policy_msg = serialiser.dict_to_policy_bytes(global_policy)
+            
             self.global_policy_pub.publish(global_policy_msg)
             rospy.loginfo("Published global policy update")
             self.local_policies = []
