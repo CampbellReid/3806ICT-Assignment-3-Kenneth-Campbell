@@ -3,7 +3,7 @@
 # Source ROS Noetic setup
 source /opt/ros/noetic/setup.bash
 
-: ${ASSIGNMENT_FOLDER_PARENT:="/home/campbell/repos"}
+export ASSIGNMENT_FOLDER_PARENT="/home/campbell/repos"
 
 # Source the workspace setup
 source "${ASSIGNMENT_FOLDER_PARENT}/3806ICT-Assignment-3-Kenneth-Campbell/devel/setup.bash"
