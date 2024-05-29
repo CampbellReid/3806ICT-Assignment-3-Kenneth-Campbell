@@ -6,8 +6,9 @@ import numpy as np
 from assignment3.msg import SerialisedDict
 from collections import OrderedDict
 import sys
+import os
 
-path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
+path_to_add = os.getenv('ASSIGNMENT_FOLDER_PARENT') + '/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
 
 if path_to_add not in sys.path:
     sys.path.insert(0, path_to_add)

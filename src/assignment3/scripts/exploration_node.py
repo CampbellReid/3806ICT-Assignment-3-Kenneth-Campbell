@@ -7,8 +7,9 @@ import sys
 from geometry_msgs.msg import Twist
 from gazebo_msgs.srv import DeleteModel
 from assignment3.msg import SerialisedDict
+import os
 
-path_to_add = '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
+path_to_add = os.getenv('ASSIGNMENT_FOLDER_PARENT') + '/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
 
 if path_to_add not in sys.path:
     sys.path.insert(0, path_to_add)
@@ -16,7 +17,6 @@ if path_to_add not in sys.path:
 from turtlebot_env import TurtleBotEnv
 import serialiser
 
-import os
 directml_enabled = os.getenv('DIRECTML_ENABLED')
 
 if directml_enabled == 'true':
