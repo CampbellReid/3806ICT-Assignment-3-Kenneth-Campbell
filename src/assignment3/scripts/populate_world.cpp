@@ -20,11 +20,18 @@ int main(int argc, char* argv[]){
         return EXIT_FAILURE;
     }
     
+    // Get the test file name parameter from the parameter server
+    std::string test_file_name;
+    if (!node.getParam("/test_file_name", test_file_name)) {
+        ROS_ERROR("Failed to get param '/test_file_name'");
+        return EXIT_FAILURE;
+    }
+
     // Construct the file paths
-    std::string test_file_path = base_dir + "/Test_Worlds/Tests/Test_3.txt";
+    std::string test_file_path = base_dir + "/Test_Worlds/Tests/" + test_file_name;
     std::string model_dir = base_dir + "/Test_Worlds/Models/";
     
-    // Read the Test.txt file to get (x, y) values for spawning objects
+    // Read the test file to get (x, y) values for spawning objects
     std::ifstream data_file(test_file_path);
     if (!data_file.is_open()) {
         ROS_ERROR("Failed to open file: %s", test_file_path.c_str());
