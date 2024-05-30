@@ -7,15 +7,26 @@
 #include <gazebo_msgs/SpawnModel.h>
 #include <cstdlib>
 
-
 int main(int argc, char* argv[]){
  
-    // Initialisations
+    // Initializations
     ros::init(argc, argv, "populate_world");
     ros::NodeHandle node;
     
-    // Read Test.txt file to get (x, y) values for spawning objects
-    std::ifstream data_file("src/assessment_3/Test_Worlds/Tests/Test_1.txt");
+    // Get the file path parameter from the parameter server
+    std::string file_path;
+    if (!node.getParam("/test_file_path", file_path)) {
+        ROS_ERROR("Failed to get param 'test_file_path'");
+        return EXIT_FAILURE;
+    }
+    
+    // Read the Test.txt file to get (x, y) values for spawning objects
+    std::ifstream data_file(file_path);
+    if (!data_file.is_open()) {
+        ROS_ERROR("Failed to open file: %s", file_path.c_str());
+        return EXIT_FAILURE;
+    }
+    
     std::string data_line;
     std::string object;
     int unique = 0;
@@ -51,7 +62,8 @@ int main(int argc, char* argv[]){
         unique += 1;  // Increment counter
 
         // Spawn object
-        if (!sm_clt.call(sm_srv)){ ROS_ERROR("ERROR: Failed to call SpawnModel Service");
+        if (!sm_clt.call(sm_srv)){ 
+            ROS_ERROR("ERROR: Failed to call SpawnModel Service");
             return EXIT_FAILURE;
         }
         ROS_INFO("Spawned %s at (x: %d, y: %d)", object.c_str(), x, y);
