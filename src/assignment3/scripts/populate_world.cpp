@@ -11,19 +11,23 @@ int main(int argc, char* argv[]){
  
     // Initializations
     ros::init(argc, argv, "populate_world");
-    ros::NodeHandle node;
+    ros::NodeHandle node; // Use default NodeHandle for global namespace
     
-    // Get the file path parameter from the parameter server
-    std::string file_path;
-    if (!node.getParam("/test_file_path", file_path)) {
-        ROS_ERROR("Failed to get param 'test_file_path'");
+    // Get the top-level directory parameter from the parameter server
+    std::string base_dir;
+    if (!node.getParam("/base_dir", base_dir)) {
+        ROS_ERROR("Failed to get param '/base_dir'");
         return EXIT_FAILURE;
     }
     
+    // Construct the file paths
+    std::string test_file_path = base_dir + "/Test_Worlds/Tests/Test_3.txt";
+    std::string model_dir = base_dir + "/Test_Worlds/Models/";
+    
     // Read the Test.txt file to get (x, y) values for spawning objects
-    std::ifstream data_file(file_path);
+    std::ifstream data_file(test_file_path);
     if (!data_file.is_open()) {
-        ROS_ERROR("Failed to open file: %s", file_path.c_str());
+        ROS_ERROR("Failed to open file: %s", test_file_path.c_str());
         return EXIT_FAILURE;
     }
     
@@ -45,7 +49,7 @@ int main(int argc, char* argv[]){
         ros::ServiceClient sm_clt = node.serviceClient<gazebo_msgs::SpawnModel>("/gazebo/spawn_urdf_model");
         
         // Read object.urdf file contents
-        std::ifstream urdf_file("src/assessment_3/Test_Worlds/Models/" + object + ".urdf");
+        std::ifstream urdf_file(model_dir + object + ".urdf");
         std::string urdf_line;
         
         while (getline(urdf_file, urdf_line) && urdf_line != ""){
