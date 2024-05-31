@@ -14,7 +14,6 @@ find_package(catkin REQUIRED COMPONENTS
 
 add_service_files(
   FILES
-  UpdateMap.srv
   GetPaths.srv
 )
 
