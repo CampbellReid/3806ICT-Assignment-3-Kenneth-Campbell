@@ -13,4 +13,4 @@ export TURTLEBOT3_MODEL=burger
 export PYTHONPATH=/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts:/home/campbell/miniconda3/envs/ros_noetic/lib/python3.8/site-packages:$PYTHONPATH
 
 # Update PATH to include conda environment
-export PATH=/home/campbell/miniconda3/envs/ros_noetic/bin:$PATH(ros_noetic)
+export PATH=/home/campbell/miniconda3/envs/ros_noetic/bin:$PATH
