@@ -98,7 +98,7 @@ To run the project, follow these steps:
    ```
 
 6. **Launch the Bots**:
-   In the fourth terminal, run:
+   After env.launch has completed, in the fourth terminal, run:
    ```bash
    roslaunch assignment3 bots.launch
    ```
