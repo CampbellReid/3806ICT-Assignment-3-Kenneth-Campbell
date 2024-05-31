@@ -22,5 +22,3 @@ dependencies:
   - stable-baselines3
   - networkx
   - pip
-  - pip:
-    - torch-directml
