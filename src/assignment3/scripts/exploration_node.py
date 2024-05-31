@@ -1,169 +1,121 @@
 import rospy
 from sensor_msgs.msg import LaserScan
-from std_msgs.msg import Float32MultiArray
-from stable_baselines3 import PPO
-import numpy as np
-import sys
+from nav_msgs.msg import Odometry
 from geometry_msgs.msg import Twist
+import numpy as np
+import tf
 from gazebo_msgs.srv import DeleteModel
-from assignment3.msg import SerialisedDict
-import os
+import open3d as o3d
+import time
+import random
 
-path_to_add = os.getenv('ASSIGNMENT_FOLDER_PARENT') + '/3806ICT-Assignment-3-Kenneth-Campbell/src/assignment3/scripts'
+# Global variables
+namespace = None
+lidar_data = np.zeros(360)
+position = None
+orientation = None
+point_cloud = o3d.geometry.PointCloud()
+start_time = None
+velocity_pub = None
 
-if path_to_add not in sys.path:
-    sys.path.insert(0, path_to_add)
+def initialize_node():
+    global namespace, velocity_pub, start_time
 
-from turtlebot_env import TurtleBotEnv
-import serialiser
+    rospy.init_node('exploration_node', anonymous=True)
+    namespace = rospy.get_param('~namespace')
 
-directml_enabled = os.getenv('DIRECTML_ENABLED')
+    rospy.Subscriber(f'/{namespace}/scan', LaserScan, lidar_callback)
+    rospy.Subscriber(f'/{namespace}/odom', Odometry, odom_callback)
+    velocity_pub = rospy.Publisher(f'/{namespace}/cmd_vel', Twist, queue_size=10)
 
-if directml_enabled == 'true':
-    import torch_directml
-    print('DIRECTML_ENABLED is set to true')
-else:
-    print('DIRECTML_ENABLED is set to false or not set')
+    rospy.on_shutdown(cleanup)
+    rospy.loginfo("Node initialized")
 
-def print_dict_structure(d, indent=0):
-    """
-    Prints the structure of a dictionary. For each value, if it's a dictionary, recursively print its structure;
-    otherwise, print its type.
+    start_time = time.time()
+    move_robot()
 
-    :param d: The dictionary to print the structure of
-    :param indent: The current indentation level (used for nested dictionaries)
-    """
-    # Check if the input is a dictionary
-    if isinstance(d, dict):
-        # Iterate through all key-value pairs in the dictionary
-        for key, value in d.items():
-            # Print the key with the appropriate indentation
-            print(' ' * indent + str(key) + ': ', end='')
-            # If the value is another dictionary, recursively call the function
-            if isinstance(value, dict):
-                print()
-                print_dict_structure(value, indent + 4)
-            else:
-                # Otherwise, print the type of the value
-                print(type(value).__name__)
+def odom_callback(data):
+    global position, orientation
+    position = data.pose.pose.position
+    orientation = data.pose.pose.orientation
+    rospy.loginfo(f"Odometry updated: position = {position}, orientation = {orientation}")
+
+def lidar_callback(data):
+    global lidar_data, position, orientation, point_cloud
+    lidar_data = np.array(data.ranges)
+
+    angle_min = data.angle_min
+    angle_increment = data.angle_increment
+    angles = np.arange(angle_min, angle_min + len(lidar_data) * angle_increment, angle_increment)
+    x_coords = lidar_data * np.cos(angles)
+    y_coords = lidar_data * np.sin(angles)
+    z_coords = np.zeros_like(x_coords)  # Assuming 2D lidar, set z to zero
+
+    if position and orientation:
+        quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+        _, _, yaw = tf.transformations.euler_from_quaternion(quaternion)
+
+        cos_yaw = np.cos(yaw)
+        sin_yaw = np.sin(yaw)
+
+        x_global = cos_yaw * x_coords - sin_yaw * y_coords + position.x
+        y_global = sin_yaw * x_coords + cos_yaw * y_coords + position.y
+
+        global_points = np.vstack((x_global, y_global, z_coords)).T
+        point_cloud.points.extend(o3d.utility.Vector3dVector(global_points))
+        rospy.loginfo(f"Global points collected: {global_points}")
     else:
-        # If the input is not a dictionary, print its type
-        print(type(d).__name__)
+        rospy.logwarn("Position and orientation data not available yet")
 
-class ExplorationNode:
-    def __init__(self):
-        rospy.init_node('exploration_node', anonymous=True)
-        rospy.loginfo("Initializing exploration_node")
+def move_robot():
+    rate = rospy.Rate(10)  # 10 Hz
+    twist = Twist()
 
-        self.namespace = rospy.get_param('~namespace')
-        rospy.loginfo(f"Namespace set to: {self.namespace}")
+    while not rospy.is_shutdown():
+        if time.time() - start_time > 240:  # Stop after 2 minutes
+            break
 
-        self.env = TurtleBotEnv(self.namespace)
-        
-        if directml_enabled == 'true':
-            dml = torch_directml.device()
-            self.model = PPO('MlpPolicy', self.env, verbose=1, device=dml)
+        # Obstacle avoidance using front sensors (first 30 and last 30 degrees)
+        front_distances = np.concatenate((lidar_data[:30], lidar_data[-30:]))
+        min_distance = np.min(front_distances)
+        if min_distance < 0.5:  # Obstacle detected within 0.5 meters
+            twist.linear.x = 0.0
+            twist.angular.z = -0.5  # Turn right
         else:
-            self.model = PPO('MlpPolicy', self.env, verbose=1)
-        
-        print_dict_structure(dict(self.model.get_parameters()))
-        
-        rospy.loginfo("TurtleBot environment and PPO model initialized")
+            twist.linear.x = 0.2  # Move forward
+            # add slight randomness to the turning
+            twist.angular.z = random.uniform(-0.1, 0.1)
 
-        self.lidar_data = np.zeros(360)
+        velocity_pub.publish(twist)
+        rate.sleep()
 
-        self.lidar_sub = rospy.Subscriber(f'/{self.namespace}/scan', LaserScan, self.lidar_callback)
-        self.policy_pub = rospy.Publisher(f'/{self.namespace}/local_policy_update', SerialisedDict, queue_size=10)
-        self.global_policy_sub = rospy.Subscriber('/global_policy_update', SerialisedDict, self.global_policy_callback)
-        self.velocity_pub = rospy.Publisher(f'/{self.namespace}/cmd_vel', Twist, queue_size=10)
+    stop_robot()
 
-        rospy.on_shutdown(self.cleanup)
-        rospy.loginfo("Subscribers and publishers initialized")
+def stop_robot():
+    twist = Twist()
+    twist.linear.x = 0.0
+    twist.angular.z = 0.0
+    velocity_pub.publish(twist)
+    rospy.loginfo("Robot stopped")
 
-    def global_policy_callback(self, data):
-        rospy.loginfo("Received global policy update")
-        
-        global_params = serialiser.policy_bytes_to_dict(data)
-        local_params = self.model.get_parameters()
-        local_params['policy'] = global_params
-        self.model.set_parameters(local_params)
-        
-        rospy.loginfo(f"[{self.namespace}] Updated local model with global policy")
+def save_points_to_pcd(filename):
+    o3d.io.write_point_cloud(filename, point_cloud)
+    rospy.loginfo(f"Points saved to {filename}")
 
-    def lidar_callback(self, data):
-        rospy.loginfo("Lidar callback triggered")
-        angle_min = data.angle_min
-        angle_max = data.angle_max
-        angle_increment = data.angle_increment
-        ranges = np.array(data.ranges)
+def cleanup():
+    global namespace
 
-        # Replace all infinities with -1
-        ranges[np.isinf(ranges)] = -1
+    stop_robot()
 
-        # if not np.any(np.isfinite(ranges)):
-        #     rospy.logwarn(f"[{self.namespace}] No valid lidar data received")
-        #     return
+    rospy.wait_for_service('/gazebo/delete_model')
+    delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
+    delete_model(namespace)
 
-        self.lidar_data = ranges
-
-        # valid_indices = np.isfinite(ranges)
-        # self.lidar_data = np.zeros(360)
-        # valid_ranges = ranges[valid_indices]
-        # valid_angles = angle_min + np.arange(len(valid_ranges)) * angle_increment
-        
-        # self.lidar_data[:len(valid_ranges)] = valid_ranges
-
-        rospy.loginfo(f"[{self.namespace}] Lidar data processed")
-        self.perform_exploration()
-
-    def perform_exploration(self):
-        if len(self.lidar_data) > 0:
-            rospy.loginfo(f"[{self.namespace}] Performing exploration step")
-            action, _states = self.model.predict(self.lidar_data)
-            rospy.loginfo(f"[{self.namespace}] Action predicted: {action}")
-            try:
-                state, reward, done, info = self.env.step(action)
-                rospy.loginfo(f"[{self.namespace}] Step result - State: {state}, Reward: {reward}, Done: {done}, Info: {info}")
-            except rospy.ROSException as e:
-                rospy.logerr(f"[{self.namespace}] Step failed: {e}")
-                return
-
-            self.policy_pub.publish(serialiser.dict_to_policy_bytes(dict(self.model.get_parameters())['policy']))
-            rospy.loginfo(f"[{self.namespace}] Published local policy update")
-
-            if done:
-                rospy.loginfo(f"[{self.namespace}] Episode finished. Resetting environment")
-                self.env.reset()
-
-    def cleanup(self):
-        rospy.loginfo(f"[{self.namespace}] Shutting down. Stopping the robot and cleaning up.")
-        
-        stop_cmd = Twist()
-        stop_cmd.linear.x = 0.0
-        stop_cmd.angular.z = 0.0
-        self.velocity_pub.publish(stop_cmd)
-        rospy.loginfo(f"[{self.namespace}] Published stop command")
-
-        try:
-            rospy.wait_for_service('/gazebo/delete_model', timeout=5)
-            delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
-            response = delete_model(self.namespace)
-            if response.success:
-                rospy.loginfo(f"[{self.namespace}] Deleted model from Gazebo: {response.status_message}")
-            else:
-                rospy.logerr(f"[{self.namespace}] Failed to delete model: {response.status_message}")
-        except rospy.ServiceException as e:
-            rospy.logerr(f"[{self.namespace}] Service call failed: {e}")
-
-        self.lidar_sub.unregister()
-        self.policy_pub.unregister()
-        self.global_policy_sub.unregister()
-        self.velocity_pub.unregister()
-        rospy.loginfo(f"[{self.namespace}] Cleanup complete. All topics unregistered.")
+    save_points_to_pcd(f'/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/{namespace}_points.pcd')
 
 if __name__ == '__main__':
     try:
-        exploration_node = ExplorationNode()
+        initialize_node()
         rospy.spin()
     except rospy.ROSInterruptException:
         rospy.logerr("ROS Interrupt Exception caught!")

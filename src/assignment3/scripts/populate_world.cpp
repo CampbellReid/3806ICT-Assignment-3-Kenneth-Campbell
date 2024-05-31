@@ -80,5 +80,6 @@ int main(int argc, char* argv[]){
         ROS_INFO("Spawned %s at (x: %d, y: %d)", object.c_str(), x, y);
     }
     data_file.close();
+    
     return EXIT_SUCCESS;
 }

@@ -1,24 +1,24 @@
- <robot name="obstacle">
-   <link name="box">
-     <inertial>
-       <origin xyz="0 0 0" />
-       <mass value="1.0" />
-       <inertia  ixx="1.0" ixy="0.0"  ixz="0.0"  iyy="100.0"  iyz="0.0"  izz="1.0" />
-     </inertial>
-     <visual>
-       <origin xyz="0 0 0"/>
-       <geometry>
-         <box size="0.25 0.25 0.75" />
-       </geometry>
-     </visual>
-     <collision>
-       <origin xyz="0 0 0"/>
-       <geometry>
-         <box size="0.25 0.25 0.75" />
-       </geometry>
-     </collision>
-   </link>
-   <gazebo reference="box">
-     <material>Gazebo/Red</material>
-   </gazebo>
- </robot>
+<robot name="obstacle">
+  <link name="box">
+    <inertial>
+      <origin xyz="0 0 0" />
+      <mass value="64.0" />
+      <inertia  ixx="64.0" ixy="0.0"  ixz="0.0"  iyy="6400.0"  iyz="0.0"  izz="64.0" />
+    </inertial>
+    <visual>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <box size="0.5 0.5 2.0" />
+      </geometry>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0"/>
+      <geometry>
+        <box size="0.5 0.5 2.0" />
+      </geometry>
+    </collision>
+  </link>
+  <gazebo reference="box">
+    <material>Gazebo/Red</material>
+  </gazebo>
+</robot>

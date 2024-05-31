@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Load the PCD file
-pcd = o3d.io.read_point_cloud("lidar_map_data.pcd")
+pcd = o3d.io.read_point_cloud("tb3_0_points.pcd")
 
 # Extract points
 points = np.asarray(pcd.points)
@@ -15,19 +15,17 @@ else:
     colors = None
 
 # Plotting the point cloud using matplotlib
-fig = plt.figure()
-ax = fig.add_subplot(111, projection='3d')
+fig, ax = plt.subplots()
 
-# Scatter plot of the point cloud
+# Scatter plot of the point cloud (2D)
 if colors is not None:
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c=colors, s=0.1)
+    ax.scatter(points[:, 0], points[:, 1], c=colors, s=0.1)
 else:
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], c='b', s=0.1)
+    ax.scatter(points[:, 0], points[:, 1], c='b', s=0.1)
 
 # Set axis labels
 ax.set_xlabel('X')
 ax.set_ylabel('Y')
-ax.set_zlabel('Z')
 
 # Show the plot
 plt.show()

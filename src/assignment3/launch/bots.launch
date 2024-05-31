@@ -5,15 +5,15 @@
   <arg name="second_tb3" default="tb3_1"/>
 
   <!-- Positions and orientations for TurtleBots -->
-  <arg name="first_tb3_x_pos" default="-2.0"/>
+  <arg name="first_tb3_x_pos" default="0.0"/>
   <arg name="first_tb3_y_pos" default="0.0"/>
   <arg name="first_tb3_z_pos" default="0.0"/>
   <arg name="first_tb3_yaw"   default="1.57"/>
 
-  <arg name="second_tb3_x_pos" default="2.0"/>
+  <arg name="second_tb3_x_pos" default="1.0"/>
   <arg name="second_tb3_y_pos" default="0.0"/>
   <arg name="second_tb3_z_pos" default="0.0"/>
-  <arg name="second_tb3_yaw"   default="1.57"/>
+  <arg name="second_tb3_yaw"   default="-1.57"/>
 
   <!-- Group for first TurtleBot -->
   <group ns="$(arg first_tb3)">
@@ -48,8 +48,5 @@
   </group>
 
   <!-- Central aggregator node -->
-  <node pkg="assignment3" type="model_aggregator.py" name="model_aggregator" output="screen">
-    <param name="first_namespace" value="$(arg first_tb3)"/>
-    <param name="second_namespace" value="$(arg second_tb3)"/>
-  </node>
+  <!-- <node pkg="assignment3" type="global_map_server.py" name="global_map_server" output="screen"></node> -->
 </launch>
