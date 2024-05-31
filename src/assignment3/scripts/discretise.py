@@ -111,7 +111,7 @@ def convert_grid_path_to_world(path, voxel_size, min_coords):
     world_coords = (path * voxel_size) + min_coords + (voxel_size / 2)
     return world_coords
 
-def main():
+def process_points():
     filepaths = [
         '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/tb3_0_points.pcd',
         '/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/tb3_1_points.pcd'
@@ -137,30 +137,37 @@ def main():
     overlay_grid = overlay_matches_on_grid(occupancy_grid, strict_matches)
     
     global_coords = convert_grid_to_global_coordinates(overlay_grid, 0.25, min_coords)
-    print("Global Coordinates of Pattern Matches:\n", global_coords)
 
     # Define start and end points in world coordinates
-    start_world = np.array([0, 0])
-    start_grid = tuple(convert_world_to_grid_coordinates(start_world, 0.25, min_coords))
+    # start_world = np.array([0, 0])
+    # start_grid = tuple(convert_world_to_grid_coordinates(start_world, 0.25, min_coords))
 
     # Create graph from the occupancy grid
     graph = create_graph_from_grid(overlay_grid)
 
-    # Create paths to all global coordinates
-    for end_world in global_coords:
-        print("Start World:", start_world)
-        print("End World:", end_world)
+    # # Create paths to all global coordinates
+    # for end_world in global_coords:
+    #     print("Start World:", start_world)
+    #     print("End World:", end_world)
         
-        end_grid = tuple(convert_world_to_grid_coordinates(end_world, 0.25, min_coords))
+    #     end_grid = tuple(convert_world_to_grid_coordinates(end_world, 0.25, min_coords))
         
-        path = nx.astar_path(graph, start_grid, end_grid)
-        print("Grid Path:", path)
+    #     path = nx.astar_path(graph, start_grid, end_grid)
+    #     print("Grid Path:", path)
         
-        # Convert the path back to world coordinates
-        world_path = convert_grid_path_to_world(path, 0.25, min_coords)
-        print("World Path:", world_path)
+    #     # Convert the path back to world coordinates
+    #     world_path = convert_grid_path_to_world(path, 0.25, min_coords)
+    #     print("World Path:", world_path)
     
-    plot_overlay_grid(overlay_grid, x_range=(-5, 5), y_range=(-5, 5))
+    # plot_overlay_grid(overlay_grid, x_range=(-5, 5), y_range=(-5, 5))
+    
+    return global_coords, graph, min_coords
 
-if __name__ == '__main__':
-    main()
+def generate_path(start, end, graph, min_coords):
+    start_grid = tuple(convert_world_to_grid_coordinates(start, 0.25, min_coords))
+    end_grid = tuple(convert_world_to_grid_coordinates(end, 0.25, min_coords))
+    
+    path = nx.astar_path(graph, start_grid, end_grid)
+    world_path = convert_grid_path_to_world(path, 0.25, min_coords)
+    
+    return world_path

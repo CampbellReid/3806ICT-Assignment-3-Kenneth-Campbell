@@ -48,5 +48,5 @@
   </group>
 
   <!-- Central aggregator node -->
-  <!-- <node pkg="assignment3" type="global_map_server.py" name="global_map_server" output="screen"></node> -->
+  <node pkg="assignment3" type="global_map_server.py" name="global_map_server" output="screen"></node>
 </launch>
