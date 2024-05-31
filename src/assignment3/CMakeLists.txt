@@ -35,10 +35,7 @@ include_directories(
 )
 
 catkin_install_python(PROGRAMS
-  scripts/lidar_map.py
   scripts/exploration_node.py
-  scripts/model_aggregator.py
-  scripts/turtlebot_env.py
   scripts/global_map_server.py
   DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
 )
