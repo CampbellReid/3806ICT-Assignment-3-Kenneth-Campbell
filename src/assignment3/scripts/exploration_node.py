@@ -8,6 +8,7 @@ from gazebo_msgs.srv import DeleteModel
 import open3d as o3d
 import time
 import random
+from std_msgs.msg import Bool
 
 # Global variables
 namespace = None
@@ -90,6 +91,10 @@ def move_robot():
         rate.sleep()
 
     stop_robot()
+    save_points_to_pcd(f'/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/{namespace}_points.pcd')
+    processing_ready = rospy.Publisher('processing_ready', Bool, queue_size=10)
+    
+    processing_ready.publish(Bool(True))
 
 def stop_robot():
     twist = Twist()
@@ -110,8 +115,6 @@ def cleanup():
     rospy.wait_for_service('/gazebo/delete_model')
     delete_model = rospy.ServiceProxy('/gazebo/delete_model', DeleteModel)
     delete_model(namespace)
-
-    save_points_to_pcd(f'/home/campbell/repos/3806ICT-Assignment-3-Kenneth-Campbell/{namespace}_points.pcd')
 
 if __name__ == '__main__':
     try:

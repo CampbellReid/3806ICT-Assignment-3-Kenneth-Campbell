@@ -20,6 +20,7 @@ dependencies:
   - rospkg
   - rosdep
   - stable-baselines3
+  - networkx
   - pip
   - pip:
     - torch-directml
