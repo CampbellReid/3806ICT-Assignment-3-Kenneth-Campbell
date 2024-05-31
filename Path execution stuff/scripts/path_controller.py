@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 
 import rospy
-from math import atan2, sqrt, pi
+from math import atan2, sqrt, cos, sin, pi
 from geometry_msgs.msg import Twist
 from assessment_3.srv import get_paths
 from geometry_msgs.msg import Quaternion, PoseArray
 from gazebo_msgs.msg import ModelState
 from gazebo_msgs.srv import SetModelState, GetModelState, GetModelStateRequest
-from tf.transformations import quaternion_from_euler
+from tf.transformations import quaternion_from_euler, quaternion_multiply
 
 def move_to_target(x, y, limit, rate):
 
@@ -26,10 +26,21 @@ def move_to_target(x, y, limit, rate):
     
     # Set current position based on previous position (avoid reverting to 0, 0)
     ms_msg.pose.position = gms_response.pose.position
-    
-    # Set new orientation towards target location
-    ms_msg.pose.orientation = Quaternion(*quaternion_from_euler(0, 0, atan2(y, x)))
-    
+
+    # Calculate movement direction
+    if int(x) > int(ms_msg.pose.position.x) and int(y) == int(ms_msg.pose.position.y):
+        ms_msg.pose.orientation.z = 0
+        ms_msg.pose.orientation.w = 1
+    elif int(x) < int(ms_msg.pose.position.x) and int(y) == int(ms_msg.pose.position.y):
+        ms_msg.pose.orientation.z = 1
+        ms_msg.pose.orientation.w = 0
+    elif int(y) > int(ms_msg.pose.position.y) and int(x) == int(ms_msg.pose.position.x):
+        ms_msg.pose.orientation.z = 1
+        ms_msg.pose.orientation.w = 1
+    elif int(y) < int(ms_msg.pose.position.y) and int(x) == int(ms_msg.pose.position.x):
+        ms_msg.pose.orientation.z = -1
+        ms_msg.pose.orientation.w = 1
+
     try:
         smt = rospy.ServiceProxy('/gazebo/set_model_state', SetModelState)
         smt_response = smt(ms_msg)
@@ -39,7 +50,7 @@ def move_to_target(x, y, limit, rate):
     # Publish constant speed
     vel_publisher = rospy.Publisher('cmd_vel', Twist, queue_size = 10)
     vel_msg = Twist()
-    vel_msg.linear.x = 0.05
+    vel_msg.linear.x = 0.085
 
     # Keep constant speed until target location reaced
     while max(gms_response.pose.position.x, x) - min(gms_response.pose.position.x, x) > limit or \
@@ -48,7 +59,6 @@ def move_to_target(x, y, limit, rate):
           
         # Update current location
         gms_response = gms(gms_request)
-        print(round(gms_response.pose.position.x, 2), round(gms_response.pose.position.y, 2))
         vel_publisher.publish(vel_msg)
         rate.sleep()
 
@@ -67,9 +77,10 @@ def controller():
     # Try get path and iterate through steps
     try:
         i = 1
+        print("Running...")
         ps_request = rospy.ServiceProxy('paths_service', get_paths)
         for step in ps_request().paths.poses:
-            move_to_target(step.position.x, step.position.y, 0.05, rate)
+            move_to_target(step.position.x, step.position.y, 0.25, rate)
             print("STEP: ", i)
             i += 1
             rate.sleep()
