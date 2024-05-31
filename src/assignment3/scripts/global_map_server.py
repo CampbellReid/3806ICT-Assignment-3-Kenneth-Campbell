@@ -18,21 +18,8 @@ class SimpleSubscriber:
             self.execute_code()
 
     def execute_code(self):
+        global global_coords, graph, min_coords
         global_coords, graph, min_coords = process_points()
-        
-        robots = [
-            'tb3_0',
-            'tb3_1'
-        ]
-        
-        # Get their current positions using gazebo get model state service
-        get_model_state = rospy.ServiceProxy('/gazebo/get_model_state', GetModelState)
-        
-        robot_positions = {}
-        for robot in robots:
-            response = get_model_state(robot, 'world')
-            pose = response.pose
-            robot_positions[robot] = (pose.position.x, pose.position.y)
             
         # for each robot pick a point to go to from global coordinates
         for robot, position in robot_positions.items():
