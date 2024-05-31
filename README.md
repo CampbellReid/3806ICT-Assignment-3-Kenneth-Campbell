@@ -37,6 +37,14 @@ This document outlines the steps required to set up and run the project on an x6
 2. **Modify Environment Variables**:
    Review and update any environment variables in the `activate` script to match your system configuration.
 
+## Installing Required Packages
+
+There are some packages which we have assumed you have installed. If they are not available, follow tutorials online to install them. Usually, they can be installed through:
+```bash
+sudo apt-get install ros-noetic-package-name
+```
+Otherwise, search the ROS documentation and tutorials for further guidance.
+
 ## Building the Project
 
 1. **Navigate to the Top-Level Directory**:
@@ -56,6 +64,43 @@ This document outlines the steps required to set up and run the project on an x6
    ```bash
    conda deactivate
    conda activate ros_noetic
+   ```
+
+## Running the Project
+
+To run the project, follow these steps:
+
+1. **Open Four Terminal Windows**:
+   Ensure you have four terminal windows open, each with the `ros_noetic` environment activated.
+
+2. **Activate the Environment in Each Terminal**:
+   ```bash
+   conda activate ros_noetic
+   ```
+
+3. **Run `roscore`**:
+   In the first terminal, start the ROS core:
+   ```bash
+   roscore
+   ```
+
+4. **Launch the World**:
+   In the second terminal, run:
+   ```bash
+   roslaunch assignment3 world.launch
+   ```
+   Wait until Gazebo is fully loaded before proceeding.
+
+5. **Launch the Environment**:
+   In the third terminal, run:
+   ```bash
+   roslaunch assignment3 env.launch
+   ```
+
+6. **Launch the Bots**:
+   In the fourth terminal, run:
+   ```bash
+   roslaunch assignment3 bots.launch
    ```
 
 ## Important Notes
