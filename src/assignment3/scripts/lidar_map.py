@@ -67,7 +67,7 @@ def get_robot_position():
         x = response.pose.position.x
         y = response.pose.position.y
         # Log the robot's position
-        rospy.loginfo("Robot position: ({}, {})".format(x, y))
+        #rospy.loginfo("Robot position: ({}, {})".format(x, y))
         
         orientation_q = response.pose.orientation
         orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
@@ -98,7 +98,7 @@ def update_map():
 
 def save_map_to_pcd(filename, map_data):
     o3d.io.write_point_cloud(filename, map_data)
-    rospy.loginfo("Map data saved to {}".format(filename))
+    #rospy.loginfo("Map data saved to {}".format(filename))
 
 def clean_up_map(map_data, epsilon=0.1):
     map_data = map_data.voxel_down_sample(voxel_size=epsilon)

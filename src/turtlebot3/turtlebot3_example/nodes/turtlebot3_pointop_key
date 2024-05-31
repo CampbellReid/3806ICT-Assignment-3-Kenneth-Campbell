@@ -55,7 +55,7 @@ class GotoPoint():
                 self.tf_listener.waitForTransform(self.odom_frame, 'base_link', rospy.Time(), rospy.Duration(1.0))
                 self.base_frame = 'base_link'
             except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-                rospy.loginfo("Cannot find transform between odom and base_link or base_footprint")
+                #rospy.loginfo("Cannot find transform between odom and base_link or base_footprint")
                 rospy.signal_shutdown("tf Exception")
 
         (position, rotation) = self.get_odom()
@@ -120,7 +120,7 @@ class GotoPoint():
             r.sleep()
 
 
-        rospy.loginfo("Stopping the robot...")
+        #rospy.loginfo("Stopping the robot...")
         self.cmd_vel.publish(Twist())
 
     def getkey(self):
@@ -136,7 +136,7 @@ class GotoPoint():
             rotation = euler_from_quaternion(rot)
 
         except (tf.Exception, tf.ConnectivityException, tf.LookupException):
-            rospy.loginfo("TF Exception")
+            #rospy.loginfo("TF Exception")
             return
 
         return (Point(*trans), rotation[2])
@@ -154,5 +154,5 @@ if __name__ == '__main__':
             GotoPoint()
 
     except:
-        rospy.loginfo("shutdown program.")
+        #rospy.loginfo("shutdown program.")
 

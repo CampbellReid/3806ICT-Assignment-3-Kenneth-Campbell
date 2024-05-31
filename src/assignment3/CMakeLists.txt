@@ -12,11 +12,6 @@ find_package(catkin REQUIRED COMPONENTS
   nav_msgs
 )
 
-add_message_files(
-  FILES
-  GlobalPoints.msg
-)
-
 add_service_files(
   FILES
   UpdateMap.srv

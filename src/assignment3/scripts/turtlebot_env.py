@@ -14,7 +14,7 @@ class TurtleBotEnv(gym.Env):
         
         # Namespace handling
         self.namespace = namespace
-        rospy.loginfo(f"Initializing TurtleBotEnv with namespace: {self.namespace}")
+        #rospy.loginfo(f"Initializing TurtleBotEnv with namespace: {self.namespace}")
         
         # Action space: Linear and angular velocity
         self.action_space = spaces.Box(low=np.array([-0.2, -2.0]), high=np.array([0.2, 2.0]), dtype=np.float32)
@@ -37,7 +37,7 @@ class TurtleBotEnv(gym.Env):
         self.global_map = o3d.geometry.PointCloud()
         self.output_file = f'{self.namespace}_lidar_map_data.pcd'
         self.safe_distance = 0.3
-        rospy.loginfo("TurtleBotEnv initialization complete")
+        #rospy.loginfo("TurtleBotEnv initialization complete")
 
     def lidar_callback(self, data):
         rospy.logdebug("LiDAR callback triggered")
@@ -56,7 +56,7 @@ class TurtleBotEnv(gym.Env):
         
         self.ranges[:len(valid_ranges)] = valid_ranges
         self.angles[:len(valid_angles)] = valid_angles
-        rospy.loginfo(f"LiDAR data received with {len(valid_ranges)} valid ranges")
+        #rospy.loginfo(f"LiDAR data received with {len(valid_ranges)} valid ranges")
 
     def get_robot_position(self):
         try:
@@ -72,7 +72,7 @@ class TurtleBotEnv(gym.Env):
             orientation_list = [orientation_q.x, orientation_q.y, orientation_q.z, orientation_q.w]
             _, _, yaw = euler_from_quaternion(orientation_list)
             self.robot_x, self.robot_y, self.robot_yaw = x, y, yaw
-            rospy.loginfo(f"Robot position: x={self.robot_x}, y={self.robot_y}, yaw={self.robot_yaw}")
+            #rospy.loginfo(f"Robot position: x={self.robot_x}, y={self.robot_y}, yaw={self.robot_yaw}")
         except rospy.ServiceException as e:
             rospy.logerr(f"Service call failed: {e}")
         except rospy.ROSException as e:
@@ -91,19 +91,19 @@ class TurtleBotEnv(gym.Env):
         new_pcd = o3d.geometry.PointCloud()
         new_pcd.points = o3d.utility.Vector3dVector(new_points)
         self.global_map += new_pcd
-        rospy.loginfo(f"Updated map with new points: {new_points.shape[0]} points added")
+        #rospy.loginfo(f"Updated map with new points: {new_points.shape[0]} points added")
 
     def save_map_to_pcd(self):
         o3d.io.write_point_cloud(self.output_file, self.global_map)
-        rospy.loginfo(f"Map data saved to {self.output_file}")
+        #rospy.loginfo(f"Map data saved to {self.output_file}")
 
     def step(self, action):
-        rospy.loginfo(f"Received action: {action}")
+        #rospy.loginfo(f"Received action: {action}")
         vel_cmd = Twist()
         vel_cmd.linear.x = action[0]
         vel_cmd.angular.z = action[1]
         self.velocity_pub.publish(vel_cmd)
-        rospy.loginfo(f"Published velocity command: linear={action[0]}, angular={action[1]}")
+        #rospy.loginfo(f"Published velocity command: linear={action[0]}, angular={action[1]}")
         rospy.sleep(0.1)
         self.get_robot_position()
         self.update_map()
@@ -111,21 +111,21 @@ class TurtleBotEnv(gym.Env):
         reward = -np.min(state) if np.min(state) < self.safe_distance else np.mean(state)
         done = np.min(state) < self.safe_distance
         info = {}
-        rospy.loginfo(f"Step result - state: {state.shape}, reward: {reward}, done: {done}")
+        #rospy.loginfo(f"Step result - state: {state.shape}, reward: {reward}, done: {done}")
         return state, reward, done, info
 
     def reset(self):
-        rospy.loginfo("Resetting environment")
+        #rospy.loginfo("Resetting environment")
         self.global_map.clear()
         self.ranges = np.zeros(360)
         self.robot_x, self.robot_y, self.robot_yaw = 0.0, 0.0, 0.0
-        rospy.loginfo("Environment reset complete")
+        #rospy.loginfo("Environment reset complete")
         return self.ranges
 
     def render(self, mode='human'):
         rospy.logdebug("Render called but not implemented")
 
     def close(self):
-        rospy.loginfo("Closing environment and saving map data")
+        #rospy.loginfo("Closing environment and saving map data")
         self.save_map_to_pcd()
-        rospy.loginfo("Environment closed")
+        #rospy.loginfo("Environment closed")

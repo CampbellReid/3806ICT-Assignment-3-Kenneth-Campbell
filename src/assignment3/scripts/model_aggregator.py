@@ -36,18 +36,18 @@ class ModelAggregatorNode:
     def policy_callback(self, data):
         local_policy = serialiser.policy_bytes_to_dict(data)
         self.local_policies.append(local_policy)
-        rospy.loginfo(f"Received local policy update: {local_policy}")
+        #rospy.loginfo(f"Received local policy update: {local_policy}")
         self.aggregate_policies()
 
     def aggregate_policies(self):
         if len(self.local_policies) == 2:
             global_policy = serialiser.average_policy(self.local_policies[0], self.local_policies[1])
-            rospy.loginfo(f"Aggregated global policy: {global_policy}")
+            #rospy.loginfo(f"Aggregated global policy: {global_policy}")
             
             global_policy_msg = serialiser.dict_to_policy_bytes(global_policy)
             
             self.global_policy_pub.publish(global_policy_msg)
-            rospy.loginfo("Published global policy update")
+            #rospy.loginfo("Published global policy update")
             self.local_policies = []
 
 if __name__ == '__main__':

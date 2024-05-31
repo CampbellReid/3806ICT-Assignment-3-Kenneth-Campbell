@@ -40,7 +40,7 @@ If you want to close, insert 'x'
 
 class Client():
     def __init__(self):
-        rospy.loginfo("wait for server")
+        #rospy.loginfo("wait for server")
         self.client()
 
     def getkey(self):
@@ -56,7 +56,7 @@ class Client():
         elif mode == 'x':
             self.shutdown()
         else:
-            rospy.loginfo("you select wrong mode")
+            #rospy.loginfo("you select wrong mode")
 
         return mode, area, count
 
@@ -70,10 +70,10 @@ class Client():
         goal.goal.y = area
         goal.goal.z = count
         client.send_goal(goal)
-        rospy.loginfo("send to goal")
+        #rospy.loginfo("send to goal")
         client.wait_for_result()
 
-        rospy.loginfo(client.get_result())
+        #rospy.loginfo(client.get_result())
 
     def shutdown(self):
         rospy.sleep(1)
